@@ -127,17 +127,6 @@ func  goLuaCallback(L *C.lua_State) C.int {
     return 0
 }
 
-// //export traceback
-// func traceback(L *C.lua_State) C.int {
-//     msg := C.LuaMacro_tostring(L, 1)
-//     if msg != nil {
-//         C.luaL_traceback(L, L, msg, 1)
-//     } else {
-//         C.LuaMacro_pushliteral(L, C.CString("no error message"))
-//     }
-//     return 1
-// }
-
 //export traceback
 func traceback(L *C.lua_State) C.int {
     errorMsg := C.LuaMacro_tostring(L, 1)
@@ -184,49 +173,17 @@ func (s *LuaState) RunStringError(script string) error {
     cscript := C.CString(script)
     defer C.free(unsafe.Pointer(cscript))
     if C.luaL_loadstring(s.L, cscript) != 0 {
-        err := C.GoString(C.lua_tolstring(s.L, -1, nil))
+        // err := C.GoString(C.lua_tolstring(s.L, -1, nil))
+        err := C.GoString(C.LuaMacro_tostring(s.L, -1))
         return fmt.Errorf("lua error (load): %s", err)
     }
-    if C.lua_pcallk(s.L, 0, C.LUA_MULTRET, 0, 0, nil) != 0 {
+    // if C.lua_pcallk(s.L, 0, C.LUA_MULTRET, 0, 0, nil) != 0 {
+    if C.LuaMacro_pcall(s.L, 0, C.LUA_MULTRET, 0) != 0 {
         err := C.GoString(C.lua_tolstring(s.L, -1, nil))
         return fmt.Errorf("lua error (call): %s", err)
     }
     return nil
 }
-
-// func (s *LuaState) RunStringTraceback(script string) error {
-//     cscript := C.CString(script)
-//     defer C.free(unsafe.Pointer(cscript))
-
-//     // 1. Load the chunk first.
-//     if C.luaL_loadstring(s.L, cscript) != 0 {
-//         err := C.GoString(C.lua_tolstring(s.L, -1, nil))
-//         C.LuaMacro_pop(s.L, 1) // remove error message from stack
-//         return fmt.Errorf("lua error (load): %s", err)
-//     }
-
-//     // 2. Push the error handler (our C traceback function) onto the stack.
-//     C.lua_pushcclosure(s.L, (*[0]byte)(C.traceback), 0)
-    
-//     // 3. Insert the error handler below the loaded chunk.
-//     // After insertion: error handler is at index -2, chunk at index -1.
-//     C.LuaMacro_insert(s.L, -2)
-    
-//     // 4. Save the error handler's absolute index (it's now at top - 1).
-//     errorHandlerIndex := C.lua_gettop(s.L) - 1
-
-//     // 5. Call the chunk with the error handler in place.
-//     if C.lua_pcallk(s.L, 0, C.LUA_MULTRET, errorHandlerIndex, 0, nil) != 0 {
-//         err := C.GoString(C.lua_tolstring(s.L, -1, nil))
-//         // Remove both the error message and the error handler.
-//         C.lua_settop(s.L, errorHandlerIndex-1)
-//         return fmt.Errorf("lua error (call): %s", err)
-//     }
-
-//     // 6. Clean up: remove the error handler from the stack.
-//     C.LuaMacro_remove(s.L, errorHandlerIndex)
-//     return nil
-// }
 
 func (s *LuaState) RunStringTraceback(script string) error {
     cscript := C.CString(script)
@@ -242,7 +199,8 @@ func (s *LuaState) RunStringTraceback(script string) error {
     
     // Load the script
     if C.luaL_loadstring(s.L, cscript) != 0 {
-        err := C.GoString(C.lua_tolstring(s.L, -1, nil))
+        // err := C.GoString(C.lua_tolstring(s.L, -1, nil))
+        err := C.GoString(C.LuaMacro_tostring(s.L, -1))
         C.lua_settop(s.L, errorHandlerIndex-1) // Remove error and handler
         return fmt.Errorf("lua error (load): %s", err)
     }
@@ -251,7 +209,8 @@ func (s *LuaState) RunStringTraceback(script string) error {
     // Call with the error handler in place
     if C.lua_pcallk(s.L, 0, C.LUA_MULTRET, errorHandlerIndex, 0, nil) != 0 {
         // Get the error message with traceback from handler
-        err := C.GoString(C.lua_tolstring(s.L, -1, nil))
+        // err := C.GoString(C.lua_tolstring(s.L, -1, nil))
+        err := C.GoString(C.LuaMacro_tostring(s.L, -1))
         C.lua_settop(s.L, errorHandlerIndex-1) // Remove error and handler
         return fmt.Errorf("lua error (call):\n%s", err)
     }
@@ -288,7 +247,8 @@ func (s *LuaState) PushNumber(val float64) {
 
 func (s *LuaState) Pop(n int) {
 	// Set the top of the stack to -n-1.
-	C.lua_settop(s.L, C.int(-n-1))
+	// C.lua_settop(s.L, C.int(-n-1))
+    C.LuaMacro_pop(s.L, C.int(n))
 }
 
 func (s *LuaState) Insert(index int) {
@@ -304,17 +264,17 @@ func (s *LuaState) LoadString(script string) error {
 	defer C.free(unsafe.Pointer(cscript))
 	if C.luaL_loadstring(s.L, cscript) != 0 {
 		errMsg := s.ToString(-1)
-		// Remove the error message from the stack.
-		s.Pop(1)
+		s.Pop(1) // remove the error message from the stack.
 		return fmt.Errorf("lua load error: %s", errMsg)
 	}
 	return nil
 }
 
 func (s *LuaState) PCall(nArgs, nResults, errorFuncIndex int) error {
-	if C.lua_pcallk(s.L, C.int(nArgs), C.int(nResults), C.int(errorFuncIndex), 0, nil) != 0 {
+	// if C.lua_pcallk(s.L, C.int(nArgs), C.int(nResults), C.int(errorFuncIndex), 0, nil) != 0 {
+    if C.LuaMacro_pcall(s.L, C.int(nArgs), C.int(nResults), C.int(errorFuncIndex)) != 0 {
 		errMsg := s.ToString(-1)
-		s.Pop(1) // remove error message
+		s.Pop(1) // remove the error message from the stack.
 		return fmt.Errorf("lua error: %s", errMsg)
 	}
 	return nil
