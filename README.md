@@ -1,6 +1,13 @@
 # Lua Bridge
 
-A cross platform lua wrapper for go with some nice abstractions
+A cross platform Lua wrapper for Golang with some nice abstractions.
+
+The drive behind making this project is for use in another project that is reimagining the web using a custom
+Lua runtime. This project allows for Golang code to hack the vanilla Lua runtime to add, remove, and modify code
+before it is even seen by the lua compiler. One such example of where this is useful is in the ability to
+patch Lua's `require()` function as seen in [main.go from commit: 8267d7b](https://github.com/Breadleaf/LuaBridge/blob/8267d7b993601c5d467c6393391a7aefe1396c6c/main.go) to both limit it to not import the os module but also extend it to look
+at user defined global modules. This could be further extended to make requests to servers similar to the inner workings
+of a browser when you import something in javascript which triggers a `HTTP GET` for that file.
 
 # Build
 
