@@ -1,4 +1,4 @@
-package main
+package main_deprecated 
 
 import (
 	"fmt"
