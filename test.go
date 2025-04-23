@@ -10,7 +10,7 @@ import (
 	"github.com/Breadleaf/LuaBridge/lua"
 )
 
-func main() {
+func main_deprecated() {
 	// Lock the OS thread to avoid signal issues when mixing Go and C
 	// runtime.LockOSThread()
 
